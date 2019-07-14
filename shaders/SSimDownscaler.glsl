@@ -27,15 +27,16 @@
 
 #define offset      vec2(0,0)
 
-#define Kernel(x)   exp(-2.0*x*x)
+#define MN(B,C,x)   (x <= 1.0 ? ((2.-1.5*B-C)*x + (-3.+2.*B+C))*x*x + (1.-B/3.) : (((-B/6.-C)*x + (B+5.*C))*x + (-2.*B-8.*C))*x+((4./3.)*B+4.*C))
+#define Kernel(x)   MN(1.0/3.0, 1.0/3.0, abs(x))
 #define taps        2.0
 
 vec4 hook() {
     vec2 base = PREKERNEL_pt * (PREKERNEL_pos * input_size + tex_offset);
 
     // Calculate bounds
-    float low  = floor((PREKERNEL_pos - 0.5*taps*POSTKERNEL_pt) * input_size - offset + tex_offset + 0.5)[axis];
-    float high = floor((PREKERNEL_pos + 0.5*taps*POSTKERNEL_pt) * input_size - offset + tex_offset + 0.5)[axis];
+    float low  = floor((PREKERNEL_pos - taps*POSTKERNEL_pt) * input_size - offset + tex_offset + 0.5)[axis];
+    float high = floor((PREKERNEL_pos + taps*POSTKERNEL_pt) * input_size - offset + tex_offset + 0.5)[axis];
 
     float W = 0.0;
     vec4 avg = vec4(0);
@@ -67,13 +68,14 @@ vec4 hook() {
 
 #define offset      vec2(0,0)
 
-#define Kernel(x)   exp(-2.0*x*x)
+#define MN(B,C,x)   (x <= 1.0 ? ((2.-1.5*B-C)*x + (-3.+2.*B+C))*x*x + (1.-B/3.) : (((-B/6.-C)*x + (B+5.*C))*x + (-2.*B-8.*C))*x+((4./3.)*B+4.*C))
+#define Kernel(x)   MN(1.0/3.0, 1.0/3.0, abs(x))
 #define taps        2.0
 
 vec4 hook() {
     // Calculate bounds
-    float low  = floor((L2_pos - 0.5*taps*POSTKERNEL_pt) * L2_size - offset + 0.5)[axis];
-    float high = floor((L2_pos + 0.5*taps*POSTKERNEL_pt) * L2_size - offset + 0.5)[axis];
+    float low  = floor((L2_pos - taps*POSTKERNEL_pt) * L2_size - offset + 0.5)[axis];
+    float high = floor((L2_pos + taps*POSTKERNEL_pt) * L2_size - offset + 0.5)[axis];
 
     float W = 0.0;
     vec4 avg = vec4(0);
@@ -98,7 +100,7 @@ vec4 hook() {
 //!WHEN NATIVE_CROPPED.w POSTKERNEL.w >
 //!DESC SSimDownscaler calc Mean
 
-#define locality    4.0
+#define locality    8.0
 
 #define offset      vec2(0,0)
 
@@ -157,15 +159,13 @@ vec4 hook() {
 //!WHEN NATIVE_CROPPED.w POSTKERNEL.w >
 //!DESC SSimDownscaler calc R
 
-#define locality    4.0
+#define locality    8.0
 
 #define offset      vec2(0,0)
 
 #define Kernel(x)   pow(1.0 / locality, abs(x))
 #define taps        3.0
 #define maxtaps     taps
-
-#define Gamma(x)    ( pow(x, vec3(1.0/2.2)) )
 
 mat2x4 ScaleH(vec2 pos) {
     // Calculate bounds
@@ -207,9 +207,9 @@ vec4 hook() {
     }
     avg /= W;
 
-    vec3 Sl = clamp(Gamma(avg[0].rgb) - pow(Gamma(M_texOff(0).rgb), vec3(2.0)), 0.0, 1.0);
-    vec3 Sh = clamp(Gamma(avg[1].rgb) - pow(Gamma(M_texOff(0).rgb), vec3(2.0)), 0.0, 1.0);
-    return vec4(mix(vec3(0), 1.0 / (1.0 + sqrt(Sh / Sl)), lessThan(vec3(0), Sl)), 0.0);
+    vec3 Sl = abs(avg[0].rgb - pow(M_texOff(0).rgb, vec3(2.0)));
+    vec3 Sh = abs(avg[1].rgb - pow(M_texOff(0).rgb, vec3(2.0)));
+    return vec4(mix(vec3(0), 1.0 / (1.0 + sqrt(Sh / Sl)), lessThan(vec3(1e-9), Sl)), 0.0);
 }
 
 //!HOOK POSTKERNEL
@@ -219,7 +219,7 @@ vec4 hook() {
 //!WHEN NATIVE_CROPPED.w POSTKERNEL.w >
 //!DESC SSimDownscaler final pass
 
-#define locality    4.0
+#define locality    8.0
 
 #define offset      vec2(0,0)
 
@@ -227,8 +227,8 @@ vec4 hook() {
 #define taps        3.0
 #define maxtaps     taps
 
-#define Gamma(x)    ( pow(x, vec3(1.0/2.2)) )
-#define GammaInv(x) ( pow(clamp(x, 0.0, 1.0), vec3(2.2)) )
+#define Gamma(x)    ( pow(x, vec3(1.0/2.0)) )
+#define GammaInv(x) ( pow(clamp(x, 0.0, 1.0), vec3(2.0)) )
 
 mat3x3 ScaleH(vec2 pos) {
     // Calculate bounds
